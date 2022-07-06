@@ -18,7 +18,7 @@ setup(
     ],
     package_dir={"GMSC-Mapper-demo": "GMSC-mapper"}, 
     packages=[GMSC-mapper,GMSC-mapper.data],  
-	include_package_data=True,
+    include_package_data=True,
     python_requires=">=3.8",
     install_requires=open("./requirements.txt", "r").read().splitlines(),
     package_data={"GMSC-Mapper-demo": ["GMSC-mapper.data"]},
