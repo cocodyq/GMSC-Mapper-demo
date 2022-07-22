@@ -28,6 +28,11 @@ def parse_args(args):
                         help='Path to the GMSC database file',
                         dest='database',
                         default=None)
+    parser.add_argument('--habitat', '--habitat',
+                        required=False,
+                        help='Path to the habitat file',
+                        dest='habitat',
+                        default=None)
     parser.add_argument('-o', '--output',
                         required=True,
                         help='Output directory (will be created if non-existent)',
@@ -88,13 +93,16 @@ def generate_fasta(args):
     fastafile = path.join(args.output,"mapped.smorfs.faa")
 
     result = pd.read_csv(resultfile, sep='\t',header=None)
-    #result = result.drop_duplicates([0],keep='first')	
     smorf_id = set(result.iloc[:, 0].tolist())
     
     with open(fastafile,"wt") as f:
         for ID,seq in fasta_iter(queryfile):
             if ID in smorf_id:
                 f.write(f'>{ID}\n{seq}\n')
+
+def habitat(args):
+    from map_habitat import smorf_habitat
+    smorf_habitat(args)
 
 def main(args=None):
     if args is None:
@@ -103,6 +111,7 @@ def main(args=None):
     predict_smorf(args)
     mapdb_diamond(args)
     generate_fasta(args)
+    habitat(args)
 
 if __name__ == '__main__':    
     main(sys.argv)
