@@ -62,6 +62,7 @@ def predict_smorf(args):
         '--cluster',
         '--keep-fasta-headers'])
 
+#should change parameter
 def mapdb_diamond(args):
     queryfile = path.join(args.output,"predicted_smorf/macrel.out.smorfs.faa")
     resultfile = path.join(args.output,"diamond.out.smorfs.tsv")
@@ -71,9 +72,29 @@ def mapdb_diamond(args):
         '-d',args.database,
         '-o',resultfile,
         '--more-sensitive',
-        '-e','0.001',
+        '-e','0.00001',
+        '--query-cover','90',
+        '--subject-cover','90',
         '--outfmt','6','qseqid','full_qseq','qlen','sseqid','full_sseq','slen','pident','length','evalue','qcovhsp','scovhsp',
         '-p','64'])  
+
+#should be optional
+def generate_fasta(args):
+    import pandas as pd
+    from fasta import fasta_iter
+
+    queryfile = path.join(args.output,"predicted_smorf/macrel.out.smorfs.faa")
+    resultfile = path.join(args.output,"diamond.out.smorfs.tsv")
+    fastafile = path.join(args.output,"mapped.smorfs.faa")
+
+    result = pd.read_csv(resultfile, sep='\t',header=None)
+    #result = result.drop_duplicates([0],keep='first')	
+    smorf_id = set(result.iloc[:, 0].tolist())
+    
+    with open(fastafile,"wt") as f:
+        for ID,seq in fasta_iter(queryfile):
+            if ID in smorf_id:
+                f.write(f'>{ID}\n{seq}\n')
 
 def main(args=None):
     if args is None:
@@ -81,6 +102,7 @@ def main(args=None):
     args = parse_args(args)
     predict_smorf(args)
     mapdb_diamond(args)
+    generate_fasta(args)
 
 if __name__ == '__main__':    
     main(sys.argv)
