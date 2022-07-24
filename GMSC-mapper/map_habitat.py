@@ -1,11 +1,9 @@
 # how to solve memory/time consuming
 # adapt to different format(.xz .gz)
 import pandas as pd
-
+from os import path
 
 def smorf_habitat(args):
-    from os import path
-
     result_file = path.join(args.output,"diamond.out.smorfs.tsv")
     habitat_file = path.join(args.output,"habitat.out.smorfs.tsv")	
 
