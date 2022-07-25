@@ -38,6 +38,11 @@ def parse_args(args):
                         help='Path to the taxonomy file',
                         dest='taxonomy',
                         default=None)
+    parser.add_argument('--quality', '--quality',
+                        required=False,
+                        help='Path to the quality file',
+                        dest='quality',
+                        default=None)
     parser.add_argument('-o', '--output',
                         required=True,
                         help='Output directory (will be created if non-existent)',
@@ -118,6 +123,11 @@ def taxonomy(args):
 
     deep_lca(args)
 
+def quality(args):
+	from map_quality import smorf_quality
+
+	smorf_quality(args)
+
 def main(args=None):
     if args is None:
         args = sys.argv
@@ -128,6 +138,7 @@ def main(args=None):
     generate_fasta(args)
     habitat(args)
     taxonomy(args)
+    quality(args)
 
 if __name__ == '__main__':    
     main(sys.argv)
