@@ -16,6 +16,49 @@ def smorf_taxonomy(args):
     output.to_csv(taxonomy_file,sep='\t',index=False)
     return taxonomy_file
 
+def add_taxa_to_sseqid(taxa,linelist,original_tax,sseqid):
+    taxa[sseqid] = []
+    if len(linelist) == 3:
+        for tax in original_tax.split(";"):
+            taxa[sseqid].append(tax)
+    return(taxa)
+
+def compare_cluster(cluster,taxa,change,lastrank,out):
+    for q_seqid,s_seqid_list in cluster.items():
+        change[q_seqid] = []
+        for rank in range(7):
+            flag = 1
+            for s_seqid in s_seqid_list:
+                if taxa[s_seqid]: # If a sequence has taxonomy
+                    if len(taxa[s_seqid]) >= rank+1: #If a sequence has enough taxonomy to compare,if blank,continue
+                        if lastrank == "":
+                            lastrank = taxa[s_seqid][rank]
+                        else:
+                            if taxa[s_seqid][rank] != lastrank: #If the current taxonomy is same as last one
+                                flag = 0
+                                lastrank = ""
+                                break
+                            else:
+                                continue
+                    else:   
+                        continue
+                else:  
+                    continue
+            if flag == 1: #add same taxonomy every rank
+                if lastrank != "":
+                    change[q_seqid].append(lastrank)
+                    lastrank = ""
+                else: #for sequence which doesn't have taxonomy
+                    lastrank = ""
+                    break
+            else:
+                break  
+        if change[q_seqid]: #after all rank circle,write results       
+            taxonomy = ";".join(change[q_seqid])
+            out.write(f'{q_seqid}\t{taxonomy}\n')
+        else: #for sequence which doesn't have taxonomy
+            out.write(f'{q_seqid}\n')     
+
 def deep_lca(args):
     taxonomy_file = smorf_taxonomy(args)
     taxonomy_dlca_file = path.join(args.output,"taxonomy.out.smorfs.dlca.tsv")
@@ -25,107 +68,29 @@ def deep_lca(args):
     change = {}
     lastrank = ""
 
-    out = open(taxonomy_dlca_file, "wt")
-    with open(taxonomy_file,"rt") as f:
-        for line in f:
-            linelist = line.strip().split("\t")
-            qseqid = linelist[0]
-            sseqid = linelist[1] 	
-            if len(linelist) == 3:
-                original_tax = linelist[2]
+    with open(taxonomy_dlca_file, "wt") as out:
+        with open(taxonomy_file,"rt") as f:
+            for line in f:
+                linelist = line.strip().split("\t")
+                qseqid = linelist[0]
+                sseqid = linelist[1] 	
+                if len(linelist) == 3:
+                    original_tax = linelist[2]
 
-            if cluster:
-                if qseqid in cluster.keys():
-                    cluster[qseqid].append(sseqid)
-                else:
-                    for q_seqid,s_seqid_list in cluster.items():
-                        change[q_seqid] = []
-                        for rank in range(7):
-                            flag = 1
-                            for s_seqid in s_seqid_list:
-                                # If a sequence has taxonomy
-                                if taxa[s_seqid]:
-                                    #If a sequence has enough taxonomy to compare,if blank,continue
-                                    if len(taxa[s_seqid]) >= rank+1:
-                                        if lastrank == "":
-                                            lastrank = taxa[s_seqid][rank]
-                                        else:
-                                            #If the current taxonomy is same as last one
-                                            if taxa[s_seqid][rank] != lastrank:
-                                                flag = 0
-                                                lastrank = ""
-                                                break
-                                            else:
-                                                continue
-                                    else:   
-                                        continue
-                                else:  
-                                    continue
-                            #add same taxonomy every rank
-                            if flag == 1:
-                                if lastrank != "":
-                                    change[q_seqid].append(lastrank)
-                                    lastrank = ""
-                            #for sequence doesn't have taxonomy
-                                else:
-                                    lastrank = ""
-                                    break
-                            else:
-                                break  
-                        #after all rank circle,output results
-                        if change[q_seqid]:       
-                            taxonomy = ";".join(change[q_seqid])
-                            out.write(q_seqid+"\t"+taxonomy+"\n")
-                        #for sequence doesn't have taxonomy
-                        else:
-                            out.write(q_seqid+"\n")                      
-                    cluster = {}
-                    taxa = {}
-                    change = {}
-                    cluster[qseqid] = [sseqid]
-            else:
-                cluster[qseqid] = [sseqid]
-                
-            taxa[sseqid] = []
-            if len(linelist) == 3:
-                for tax in original_tax.split(";"):
-                    taxa[sseqid].append(tax)
-                
-    for q_seqid,s_seqid_list in cluster.items():
-        change[q_seqid] = []
-        for rank in range(7):
-            flag = 1
-            for s_seqid in s_seqid_list:
-                if taxa[s_seqid]:
-                    if len(taxa[s_seqid]) >= rank+1:
-                        if lastrank == "":
-                            lastrank = taxa[s_seqid][rank]
-                        else:
-                            if taxa[s_seqid][rank] != lastrank:
-                                flag = 0
-                                lastrank = ""
-                                break
-                            else:
-                                continue
+                if cluster:
+                    if qseqid in cluster.keys():
+                        cluster[qseqid].append(sseqid)
                     else:
-                        continue
+                        compare_cluster(cluster,taxa,change,lastrank,out)             
+                        cluster = {}
+                        taxa = {}
+                        change = {}
+                        cluster[qseqid] = [sseqid]
                 else:
-                    continue
-            if flag == 1:
-                if lastrank != "":
-                    change[q_seqid].append(lastrank)
-                    lastrank = ""
-                else:
-                    lastrank = ""
-                    break   
-            else:
-                break   
-        if change[q_seqid]:       
-            taxonomy = ";".join(change[q_seqid])
-            out.write(q_seqid+"\t"+taxonomy+"\n")
-        else:
-            out.write(q_seqid+"\n")                                  
-    out.close()  
+                    cluster[qseqid] = [sseqid]
+                
+                taxa = add_taxa_to_sseqid(taxa,linelist,original_tax,sseqid)
+            compare_cluster(cluster,taxa,change,lastrank,out)                                            
 
 '''
 def store_taxonomy(args):
