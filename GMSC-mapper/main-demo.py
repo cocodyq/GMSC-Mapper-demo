@@ -4,7 +4,9 @@ import sys
 import os
 from os import path, makedirs
 import pandas as pd
-    
+
+_ROOT = path.abspath(path.dirname(__file__))
+
 def parse_args(args):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description='GMSC-mapper')
@@ -13,63 +15,88 @@ def parse_args(args):
                         help='Path to the input genome FASTA file.',
                         dest='genome_fasta',
                         default = None)
+
     parser.add_argument('--nt-genes', '--nt_genes',
                         required=False,
                         help='Path to the input DNA gene file (FASTA format)',
                         dest='nt_input',
                         default=None)
+
     parser.add_argument('--aa-genes', '--aa_genes',
                         required=False,
                         help='Path to the input amino acid gene file (FASTA format)',
                         dest='aa_input',
                         default=None)
+
     parser.add_argument('--db', '--db',
-                        required=True,
+                        required=False,
                         help='Path to the GMSC database file',
                         dest='database',
-                        default=None)
+                        default=path.join(_ROOT, 'example/exampledb.dmnd'))
+
     parser.add_argument('--habitat', '--habitat',
                         required=False,
                         help='Path to the habitat file',
                         dest='habitat',
-                        default=None)
+                        default=path.join(_ROOT, 'example/ref_habitat.txt'))
+    parser.add_argument('--nohabitat','--nohabitat',action='store_true', help='Use this if no need to annotate habitat')
+
     parser.add_argument('--taxonomy', '--taxonomy',
                         required=False,
                         help='Path to the taxonomy file',
                         dest='taxonomy',
-                        default=None)
+                        default=path.join(_ROOT, 'example/ref_taxonomy.txt'))
+    parser.add_argument('--notaxonomy', '--notaxonomy',action='store_true', help='Use this if no need to annotate taxonomy')
+
     parser.add_argument('--quality', '--quality',
                         required=False,
                         help='Path to the quality file',
                         dest='quality',
-                        default=None)
+                        default=path.join(_ROOT, 'example/ref_quality.txt'))
+    parser.add_argument('--noquality', '--noquality',action='store_true', help='Use this if no need to annotate quality')
+
     parser.add_argument('-o', '--output',
                         required=True,
                         help='Output directory (will be created if non-existent)',
                         dest='output',
                         default = None)	
+					
     return parser.parse_args()
 
 def validate_args(args):
     def expect_file(f):
-        if f is not None:
-            if not os.path.exists(f):
-                sys.stderr.write(f"GMSC-mapper Error: Expected file '{f}' does not exist\n")
-                sys.exit(1)
-
-    expect_file(args.genome_fasta)
-    expect_file(args.aa_input)
-    expect_file(args.nt_input)
-    expect_file(args.database) 
-
+        if not os.path.exists(f):
+            sys.stderr.write(f"GMSC-mapper Error: Expected file '{f}' does not exist\n")
+            sys.exit(1)
+    
     if args.genome_fasta is None and args.aa_input is None and args.nt_input is None:
         sys.stderr.write("GMSC-mapper Error: At least one of --input or --aa-genes or --nt_genes is necessary\n")
         sys.stderr.exit(1)
+    elif args.genome_fasta is not None:
+        expect_file(args.genome_fasta)
+    elif args.aa_input is not None:
+        expect_file(args.aa_input)
+    else:
+        expect_file(args.nt_input)
+
     if args.database is None:
         sys.stderr.write("GMSC-mapper Error: GMSC databse is necessary\n")
         sys.stderr.exit(1)
+    else:
+        expect_file(args.database) 
+    
+    if args.habitat is not None:
+        expect_file(args.habitat)
+
+    if args.taxonomy is not None:
+        expect_file(args.taxonomy)
+
+    if args.quality is not None:
+        expect_file(args.quality)
 
 def predict_smorf(args):
+    print('Start smORF prediction...')
+
     outdir = path.join(args.output,"predicted_smorf")
 
     subprocess.check_call([
@@ -78,9 +105,12 @@ def predict_smorf(args):
         '--output',outdir,
         '--cluster',
         '--keep-fasta-headers'])
+    print('\nsmORF prediction has done.\n')
 
 #should change parameter
 def mapdb_diamond(args):
+    print('Start smORF mapping...')
+
     queryfile = path.join(args.output,"predicted_smorf/macrel.out.smorfs.faa")
     resultfile = path.join(args.output,"diamond.out.smorfs.tsv")
 
@@ -95,9 +125,11 @@ def mapdb_diamond(args):
         '--subject-cover','90',
         '--outfmt','6','qseqid','full_qseq','qlen','sseqid','full_sseq','slen','pident','length','evalue','qcovhsp','scovhsp',
         '-p','64'])  
+    print('\nsmORF mapping has done.\n')
 
-#should be optional
 def generate_fasta(args):
+    print('Start smORF fasta file generating...')
+
     import pandas as pd
     from fasta import fasta_iter
 
@@ -112,33 +144,44 @@ def generate_fasta(args):
         for ID,seq in fasta_iter(queryfile):
             if ID in smorf_id:
                 f.write(f'>{ID}\n{seq}\n')
+    print('\nsmORF fasta file generating has done.\n')
 
 def habitat(args):
     from map_habitat import smorf_habitat
-
+    print('Start habitat annotation...')
     smorf_habitat(args)
-    
+    print('\nhabitat annotation has done.\n')
+
 def taxonomy(args):
     from map_taxonomy import deep_lca
-
+    print('Start taxonomy annotation...')
     deep_lca(args)
+    print('\ntaxonomy annotation has done.\n')
 
 def quality(args):
-	from map_quality import smorf_quality
-
-	smorf_quality(args)
+    from map_quality import smorf_quality
+    print('Start quality annotation...')
+    smorf_quality(args)
+    print('\nquality annotation has done.\n')
 
 def main(args=None):
     if args is None:
         args = sys.argv
     args = parse_args(args)
+    validate_args(args)
+
+    if not os.path.exists(args.output):
+        os.makedirs(args.output)
 
     predict_smorf(args)
     mapdb_diamond(args)
     generate_fasta(args)
-    habitat(args)
-    taxonomy(args)
-    quality(args)
+    if not args.nohabitat:
+        habitat(args)
+    if not args.notaxonomy:
+        taxonomy(args)
+    if not args.noquality:
+        quality(args)
 
 if __name__ == '__main__':    
     main(sys.argv)
