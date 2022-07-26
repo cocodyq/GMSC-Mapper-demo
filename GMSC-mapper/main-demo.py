@@ -4,6 +4,7 @@ import sys
 import os
 from os import path, makedirs
 import pandas as pd
+import tempfile
 
 _ROOT = path.abspath(path.dirname(__file__))
 
@@ -152,10 +153,10 @@ def habitat(args):
     smorf_habitat(args)
     print('\nhabitat annotation has done.\n')
 
-def taxonomy(args):
+def taxonomy(args,tmpdirname):
     from map_taxonomy import deep_lca
     print('Start taxonomy annotation...')
-    deep_lca(args)
+    deep_lca(args,tmpdirname)
     print('\ntaxonomy annotation has done.\n')
 
 def quality(args):
@@ -172,16 +173,23 @@ def main(args=None):
 
     if not os.path.exists(args.output):
         os.makedirs(args.output)
-
-    predict_smorf(args)
-    mapdb_diamond(args)
-    generate_fasta(args)
-    if not args.nohabitat:
-        habitat(args)
-    if not args.notaxonomy:
-        taxonomy(args)
-    if not args.noquality:
-        quality(args)
+    
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        try:
+            predict_smorf(args)
+            mapdb_diamond(args)
+            generate_fasta(args)
+            if not args.nohabitat:
+                habitat(args)
+            if not args.notaxonomy:
+                taxonomy(args,tmpdirname)
+            if not args.noquality:
+                quality(args)				
+        except Exception as e:
+            sys.stderr.write('GMGC-mapper Error: ')
+            sys.stderr.write(str(e))
+            sys.stderr.write('\n')
+            sys.exit(1)		
 
 if __name__ == '__main__':    
     main(sys.argv)
