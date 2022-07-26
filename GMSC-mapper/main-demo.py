@@ -73,12 +73,15 @@ def validate_args(args):
     if args.genome_fasta is None and args.aa_input is None and args.nt_input is None:
         sys.stderr.write("GMSC-mapper Error: At least one of --input or --aa-genes or --nt_genes is necessary\n")
         sys.stderr.exit(1)
-    elif args.genome_fasta is not None:
+    elif args.genome_fasta is not None and args.aa_input is None and args.nt_input is None:
         expect_file(args.genome_fasta)
-    elif args.aa_input is not None:
+    elif args.aa_input is not None and args.genome_fasta is None and args.nt_input is None:
         expect_file(args.aa_input)
-    else:
+    elif args.nt_input is not None and args.genome_fasta is None and args.aa_input is None:
         expect_file(args.nt_input)
+    else:
+        sys.stderr.write("GMSC-mapper Error: --input or --aa-genes or --nt_genes shouldn't be assigned at the same time\n")
+        sys.stderr.exit(1)
 
     if args.database is None:
         sys.stderr.write("GMSC-mapper Error: GMSC databse is necessary\n")
@@ -107,18 +110,19 @@ def predict_smorf(args):
         '--cluster',
         '--keep-fasta-headers'])
     print('\nsmORF prediction has done.\n')
+    return path.join(args.output,"predicted_smorf/macrel.out.smorfs.faa")
 
 #should change parameter
-def mapdb_diamond(args):
+def mapdb_diamond(queryfile,database,resultdir):
     print('Start smORF mapping...')
 
-    queryfile = path.join(args.output,"predicted_smorf/macrel.out.smorfs.faa")
-    resultfile = path.join(args.output,"diamond.out.smorfs.tsv")
+    #queryfile = path.join(args.output,"predicted_smorf/macrel.out.smorfs.faa")
+    resultfile = path.join(resultdir,"diamond.out.smorfs.tsv")
 
     subprocess.check_call([
         'diamond','blastp',
         '-q',queryfile,
-        '-d',args.database,
+        '-d',database,
         '-o',resultfile,
         '--more-sensitive',
         '-e','0.00001',
@@ -128,15 +132,15 @@ def mapdb_diamond(args):
         '-p','64'])  
     print('\nsmORF mapping has done.\n')
 
-def generate_fasta(args):
+def generate_fasta(queryfile,resultdir):
     print('Start smORF fasta file generating...')
 
     import pandas as pd
     from fasta import fasta_iter
 
-    queryfile = path.join(args.output,"predicted_smorf/macrel.out.smorfs.faa")
-    resultfile = path.join(args.output,"diamond.out.smorfs.tsv")
-    fastafile = path.join(args.output,"mapped.smorfs.faa")
+    #queryfile = path.join(args.output,"predicted_smorf/macrel.out.smorfs.faa")
+    resultfile = path.join(resultdir,"diamond.out.smorfs.tsv")
+    fastafile = path.join(resultdir,"mapped.smorfs.faa")
 
     result = pd.read_csv(resultfile, sep='\t',header=None)
     smorf_id = set(result.iloc[:, 0].tolist())
@@ -176,9 +180,12 @@ def main(args=None):
     
     with tempfile.TemporaryDirectory() as tmpdirname:
         try:
-            predict_smorf(args)
-            mapdb_diamond(args)
-            generate_fasta(args)
+            if args.genome_fasta:
+                queryfile = predict_smorf(args)
+            if args.aa_input:
+                queryfile = args.aa_input
+            mapdb_diamond(queryfile,args.database,args.output)
+            generate_fasta(queryfile,args.output)
             if not args.nohabitat:
                 habitat(args)
             if not args.notaxonomy:

@@ -16,4 +16,3 @@ def smorf_quality(args):
     rule = {"high quality":0,"low quality":1}
     output['quality'] = output['quality'].apply(lambda x: sorted(x.split(','),key=lambda x:rule[x])[0])
     output.to_csv(quality_file,sep='\t',index=False)
-    return quality_file
