@@ -40,7 +40,7 @@ def parse_args(args):
                         required=False,
                         help='Path to the GMSC database file',
                         dest='database',
-                        default=path.join(_ROOT, 'example/exampledb.dmnd'))
+                        default=None)
 
     parser.add_argument('--habitat', '--habitat',
                         required=False,
@@ -90,10 +90,7 @@ def validate_args(args):
         sys.stderr.write("GMSC-mapper Error: --input or --aa-genes or --nt_genes shouldn't be assigned at the same time\n")
         sys.stderr.exit(1)
 
-    if args.database is None:
-        sys.stderr.write("GMSC-mapper Error: GMSC databse is necessary\n")
-        sys.stderr.exit(1)
-    else:
+    if args.database is not None:
         expect_file(args.database) 
     
     if args.habitat is not None:
@@ -156,7 +153,7 @@ def mapdb_mmseqs(queryfile,database,resultdir,tmpdir):
         querydb,
         database,
         resultdb,
-		tmp,
+        tmp,
         '-e','0.00001'])  
 
     subprocess.check_call([
@@ -164,7 +161,7 @@ def mapdb_mmseqs(queryfile,database,resultdir,tmpdir):
         querydb,
         database,
         resultdb,
-		resultfile,
+        resultfile,
         '--format-output',"query,qseq,qlen,target,tseq,tlen,fident,alnlen,evalue,qcov,tcov"])		
 
     print('\nsmORF mapping has done.\n')
@@ -222,10 +219,12 @@ def main(args=None):
                 queryfile = args.aa_input
 
             if args.tool == 'diamond':
+                if args.database is None:
+                    args.database = path.join(_ROOT, 'example/example_diamond_db')				
                 resultfile = mapdb_diamond(queryfile,args.database,args.output)
             if args.tool == 'mmseqs':
                 if args.database is None:
-                    args.database = path.join(_ROOT, 'example/exampledb.dmnd')
+                    args.database = path.join(_ROOT, 'example/example_mmseqs_db')
                 resultfile = mapdb_mmseqs(queryfile,args.database,args.output,tmpdirname)
 
             generate_fasta(queryfile,resultfile,args.output)
