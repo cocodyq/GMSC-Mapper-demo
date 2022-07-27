@@ -29,6 +29,13 @@ def parse_args(args):
                         dest='aa_input',
                         default=None)
 
+    parser.add_argument('--tool', '--tool',
+                        required=False,
+						choices=['diamond', 'mmseqs'],
+                        help='Sequence alignment tool',
+                        dest='tool',
+                        default='diamond')
+
     parser.add_argument('--db', '--db',
                         required=False,
                         help='Path to the GMSC database file',
@@ -116,7 +123,6 @@ def predict_smorf(args):
 def mapdb_diamond(queryfile,database,resultdir):
     print('Start smORF mapping...')
 
-    #queryfile = path.join(args.output,"predicted_smorf/macrel.out.smorfs.faa")
     resultfile = path.join(resultdir,"diamond.out.smorfs.tsv")
 
     subprocess.check_call([
@@ -130,16 +136,46 @@ def mapdb_diamond(queryfile,database,resultdir):
         '--subject-cover','90',
         '--outfmt','6','qseqid','full_qseq','qlen','sseqid','full_sseq','slen','pident','length','evalue','qcovhsp','scovhsp',
         '-p','64'])  
-    print('\nsmORF mapping has done.\n')
 
-def generate_fasta(queryfile,resultdir):
+    print('\nsmORF mapping has done.\n')
+    return resultfile
+
+def mapdb_mmseqs(queryfile,database,resultdir,tmpdir):
+    print('Start smORF mapping...')
+    
+    querydb = path.join(tmpdir,"query.db")
+    resultdb = path.join(tmpdir,"result.db")
+    tmp = path.join(tmpdir,"tmp","")
+    resultfile = path.join(resultdir,"mmseqs.out.smorfs.tsv")
+
+    subprocess.check_call([
+        'mmseqs','createdb',queryfile,querydb]) 
+
+    subprocess.check_call([
+        'mmseqs','search',
+        querydb,
+        database,
+        resultdb,
+		tmp,
+        '-e','0.00001'])  
+
+    subprocess.check_call([
+        'mmseqs','convertalis',
+        querydb,
+        database,
+        resultdb,
+		resultfile,
+        '--format-output',"query,qseq,qlen,target,tseq,tlen,fident,alnlen,evalue,qcov,tcov"])		
+
+    print('\nsmORF mapping has done.\n')
+    return resultfile
+
+def generate_fasta(queryfile,resultfile,resultdir):
     print('Start smORF fasta file generating...')
 
     import pandas as pd
     from fasta import fasta_iter
 
-    #queryfile = path.join(args.output,"predicted_smorf/macrel.out.smorfs.faa")
-    resultfile = path.join(resultdir,"diamond.out.smorfs.tsv")
     fastafile = path.join(resultdir,"mapped.smorfs.faa")
 
     result = pd.read_csv(resultfile, sep='\t',header=None)
@@ -151,22 +187,22 @@ def generate_fasta(queryfile,resultdir):
                 f.write(f'>{ID}\n{seq}\n')
     print('\nsmORF fasta file generating has done.\n')
 
-def habitat(args):
+def habitat(args,resultfile):
     from map_habitat import smorf_habitat
     print('Start habitat annotation...')
-    smorf_habitat(args)
+    smorf_habitat(args,resultfile)
     print('\nhabitat annotation has done.\n')
 
-def taxonomy(args,tmpdirname):
+def taxonomy(args,resultfile,tmpdirname):
     from map_taxonomy import deep_lca
     print('Start taxonomy annotation...')
-    deep_lca(args,tmpdirname)
+    deep_lca(args,resultfile,tmpdirname)
     print('\ntaxonomy annotation has done.\n')
 
-def quality(args):
+def quality(args,resultfile):
     from map_quality import smorf_quality
     print('Start quality annotation...')
-    smorf_quality(args)
+    smorf_quality(args,resultfile)
     print('\nquality annotation has done.\n')
 
 def main(args=None):
@@ -184,14 +220,22 @@ def main(args=None):
                 queryfile = predict_smorf(args)
             if args.aa_input:
                 queryfile = args.aa_input
-            mapdb_diamond(queryfile,args.database,args.output)
-            generate_fasta(queryfile,args.output)
+
+            if args.tool == 'diamond':
+                resultfile = mapdb_diamond(queryfile,args.database,args.output)
+            if args.tool == 'mmseqs':
+                if args.database is None:
+                    args.database = path.join(_ROOT, 'example/exampledb.dmnd')
+                resultfile = mapdb_mmseqs(queryfile,args.database,args.output,tmpdirname)
+
+            generate_fasta(queryfile,resultfile,args.output)
+
             if not args.nohabitat:
-                habitat(args)
+                habitat(args,resultfile)
             if not args.notaxonomy:
-                taxonomy(args,tmpdirname)
+                taxonomy(args,resultfile,tmpdirname)
             if not args.noquality:
-                quality(args)				
+                quality(args,resultfile)				
         except Exception as e:
             sys.stderr.write('GMGC-mapper Error: ')
             sys.stderr.write(str(e))

@@ -3,11 +3,10 @@
 from os import path
 import pandas as pd
 
-def smorf_taxonomy(args,tmpdirname):
-    result_file = path.join(args.output,"diamond.out.smorfs.tsv")
+def smorf_taxonomy(args,resultfile,tmpdirname):
     taxonomy_file = path.join(tmpdirname,"taxonomy.out.smorfs.tmp.tsv")	
 
-    result = pd.read_csv(result_file, sep='\t',header=None)
+    result = pd.read_csv(resultfile, sep='\t',header=None)
     result.columns = ['qseqid','full_qseq','qlen','sseqid','full_sseq','slen','pident','length','evalue','qcovhsp','scovhsp']
     ref_taxonomy = pd.read_csv(args.taxonomy, sep='\t',header=None)
     ref_taxonomy.columns = ['sseqid','taxonomy']
@@ -59,8 +58,8 @@ def compare_cluster(cluster,taxa,change,lastrank,out):
         else: #for sequence which doesn't have taxonomy
             out.write(f'{q_seqid}\n')     
 
-def deep_lca(args,tmpdirname):
-    taxonomy_file = smorf_taxonomy(args,tmpdirname)
+def deep_lca(args,resultfile,tmpdirname):
+    taxonomy_file = smorf_taxonomy(args,resultfile,tmpdirname)
     taxonomy_dlca_file = path.join(args.output,"taxonomy.out.smorfs.tsv")
 	
     cluster = {}
