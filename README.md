@@ -13,7 +13,10 @@ python3 main.py -i example.fa -o output
 ```
 
 2. Input is protein sequences
-3. Input is nucleotide sequences
+
+```bash
+python3 main.py --aa-genes example.faa -o output
+```
 
 ### GMSC database/habitat/taxonomy/quality file path can be assigned on your own
 ```bash
@@ -49,26 +52,34 @@ The output folder will contain
 - Quality annotation of smORFs.(optional)
 
 ## Parameters
-* `-i/--input`: path to the input genome contig sequence file (FASTA, possibly .gz/.bz2/.xz compressed).
+* `-i/--input`: Path to the input genome contig sequence FASTA file.
 
-* `--nt-genes`: path to the input nucleotide sequence file (FASTA, possibly .gz/.bz2/.xz compressed).
-
-* `--aa-genes`: path to the input protein sequence file (FASTA, possibly .gz/.bz2/.xz compressed).
+* `--aa-genes`: Path to the input amino acid sequence FASTA file.
 
 * `-o/--output`: Output directory (will be created if non-existent).
 
-* `--db`: path to the GMSC database file(.dmnd).
+* `--tool`: Sequence alignment tool(Diamond/MMseqs).
 
-* `--habitat`: path to the habitat file.
+* `--db`: Path to the GMSC database file.
 
-* `--nohabitat`: use this if no need to annotate habitat.
+* `--id`: Minimum identity to report an alignment(range 0.0-1.0).
 
-* `--taxonomy`: path to the taxonomy file.
+* `--cov`: Minimum coverage to report an alignment(range 0.0-1.0).
 
-* `--notaxonomy`: use this if no need to annotate taxonomy.
+* `-e/--evalue`: Maximum e-value to report alignments(default=0.00001).
 
-* `--quality`: path to the quality file.
+* `--habitat`: Path to the habitat file.
 
-* `--noquality`: use this if no need to annotate quality.
+* `--nohabitat`: Use this if no need to annotate habitat.
+
+* `--taxonomy`: Path to the taxonomy file.
+
+* `--notaxonomy`: Use this if no need to annotate taxonomy.
+
+* `--quality`: Path to the quality file.
+
+* `--noquality`: Use this if no need to annotate quality.
+
+* `-t/--threads`: Number of CPU threads(default=3).
 
 
