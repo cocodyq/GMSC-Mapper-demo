@@ -135,7 +135,7 @@ def mapdb_diamond(args,queryfile):
         '-o',resultfile,
         '--more-sensitive',
         '-e','0.00001',
-        '--id','0',
+        '--id',str(args.identity*100),
         '--query-cover','90',
         '--subject-cover','90',
         '--outfmt','6','qseqid','full_qseq','qlen','sseqid','full_sseq','slen','pident','length','evalue','qcovhsp','scovhsp',
@@ -162,7 +162,7 @@ def mapdb_mmseqs(args,queryfile,tmpdir):
         resultdb,
 		tmp,
         '-e','0.00001',
-        '--min-seq-id','0',
+        '--min-seq-id',str(args.identity),
         '-c','0.9'])  
 
     subprocess.check_call([
