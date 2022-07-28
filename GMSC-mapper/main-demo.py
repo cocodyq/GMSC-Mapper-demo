@@ -42,6 +42,12 @@ def parse_args(args):
                         dest='database',
                         default=None)
 
+    parser.add_argument('--id', '--id',
+                        required=False,
+                        help='minimum identity to report an alignment.(range 0.0-1.0)',
+                        dest='identity',
+                        default=0.0)
+
     parser.add_argument('--habitat', '--habitat',
                         required=False,
                         help='Path to the habitat file',
@@ -117,18 +123,19 @@ def predict_smorf(args):
     return path.join(args.output,"predicted_smorf/macrel.out.smorfs.faa")
 
 #should change parameter
-def mapdb_diamond(queryfile,database,resultdir):
+def mapdb_diamond(args,queryfile):
     print('Start smORF mapping...')
 
-    resultfile = path.join(resultdir,"diamond.out.smorfs.tsv")
+    resultfile = path.join(args.output,"diamond.out.smorfs.tsv")
 
     subprocess.check_call([
         'diamond','blastp',
         '-q',queryfile,
-        '-d',database,
+        '-d',args.database,
         '-o',resultfile,
         '--more-sensitive',
         '-e','0.00001',
+        '--id','0',
         '--query-cover','90',
         '--subject-cover','90',
         '--outfmt','6','qseqid','full_qseq','qlen','sseqid','full_sseq','slen','pident','length','evalue','qcovhsp','scovhsp',
@@ -137,13 +144,13 @@ def mapdb_diamond(queryfile,database,resultdir):
     print('\nsmORF mapping has done.\n')
     return resultfile
 
-def mapdb_mmseqs(queryfile,database,resultdir,tmpdir):
+def mapdb_mmseqs(args,queryfile,tmpdir):
     print('Start smORF mapping...')
     
     querydb = path.join(tmpdir,"query.db")
     resultdb = path.join(tmpdir,"result.db")
     tmp = path.join(tmpdir,"tmp","")
-    resultfile = path.join(resultdir,"mmseqs.out.smorfs.tsv")
+    resultfile = path.join(args.output,"mmseqs.out.smorfs.tsv")
 
     subprocess.check_call([
         'mmseqs','createdb',queryfile,querydb]) 
@@ -151,15 +158,17 @@ def mapdb_mmseqs(queryfile,database,resultdir,tmpdir):
     subprocess.check_call([
         'mmseqs','search',
         querydb,
-        database,
+        args.database,
         resultdb,
-        tmp,
-        '-e','0.00001'])  
+		tmp,
+        '-e','0.00001',
+        '--min-seq-id','0',
+        '-c','0.9'])  
 
     subprocess.check_call([
         'mmseqs','convertalis',
         querydb,
-        database,
+        args.database,
         resultdb,
         resultfile,
         '--format-output',"query,qseq,qlen,target,tseq,tlen,fident,alnlen,evalue,qcov,tcov"])		
@@ -167,13 +176,13 @@ def mapdb_mmseqs(queryfile,database,resultdir,tmpdir):
     print('\nsmORF mapping has done.\n')
     return resultfile
 
-def generate_fasta(queryfile,resultfile,resultdir):
+def generate_fasta(args,queryfile,resultfile):
     print('Start smORF fasta file generating...')
 
     import pandas as pd
     from fasta import fasta_iter
 
-    fastafile = path.join(resultdir,"mapped.smorfs.faa")
+    fastafile = path.join(args.output,"mapped.smorfs.faa")
 
     result = pd.read_csv(resultfile, sep='\t',header=None)
     smorf_id = set(result.iloc[:, 0].tolist())
@@ -206,6 +215,14 @@ def main(args=None):
     if args is None:
         args = sys.argv
     args = parse_args(args)
+
+    if args.tool == 'diamond':
+        if args.database is None:
+            args.database = path.join(_ROOT, 'example/example_diamond_db.dmnd')	
+    if args.tool == 'mmseqs':
+        if args.database is None:
+            args.database = path.join(_ROOT, 'example/example_mmseqs_db')
+
     validate_args(args)
 
     if not os.path.exists(args.output):
@@ -218,16 +235,12 @@ def main(args=None):
             if args.aa_input:
                 queryfile = args.aa_input
 
-            if args.tool == 'diamond':
-                if args.database is None:
-                    args.database = path.join(_ROOT, 'example/example_diamond_db')				
-                resultfile = mapdb_diamond(queryfile,args.database,args.output)
+            if args.tool == 'diamond':			
+                resultfile = mapdb_diamond(args,queryfile)
             if args.tool == 'mmseqs':
-                if args.database is None:
-                    args.database = path.join(_ROOT, 'example/example_mmseqs_db')
-                resultfile = mapdb_mmseqs(queryfile,args.database,args.output,tmpdirname)
+                resultfile = mapdb_mmseqs(args,queryfile,tmpdirname)
 
-            generate_fasta(queryfile,resultfile,args.output)
+            generate_fasta(args,queryfile,resultfile)
 
             if not args.nohabitat:
                 habitat(args,resultfile)
