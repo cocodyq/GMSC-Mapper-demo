@@ -48,6 +48,24 @@ def parse_args(args):
                         dest='identity',
                         default=0.0)
 
+    parser.add_argument('--cov', '--cov',
+                        required=False,
+                        help='minimum coverage to report an alignment.(range 0.0-1.0)',
+                        dest='coverage',
+                        default=0.9)
+
+    parser.add_argument('-e', '--evalue',
+                        required=False,
+                        help='maximum e-value to report alignments.(default=0.00001)',
+                        dest='evalue',
+                        default=0.00001)
+
+    parser.add_argument('-t', '--threads',
+                        required=False,
+                        help='number of CPU threads.(default=3)',
+                        dest='threads',
+                        default=3)
+
     parser.add_argument('--habitat', '--habitat',
                         required=False,
                         help='Path to the habitat file',
@@ -134,12 +152,14 @@ def mapdb_diamond(args,queryfile):
         '-d',args.database,
         '-o',resultfile,
         '--more-sensitive',
-        '-e','0.00001',
+        '-e',str(args.evalue),
         '--id',str(args.identity*100),
-        '--query-cover','90',
-        '--subject-cover','90',
+        '--query-cover',str(args.coverage*100),
+        '--subject-cover',str(args.coverage*100),
+        #'--outfmt','6 qseqid full_qseq qlen sseqid full_sseq slen pident length evalue qcovhsp scovhsp',can't work 
+        # Value 6 may be followed by a space-separated list of these keywords: how to accept this parameter from commond
         '--outfmt','6','qseqid','full_qseq','qlen','sseqid','full_sseq','slen','pident','length','evalue','qcovhsp','scovhsp',
-        '-p','64'])  
+        '-p',str(args.threads)])  
 
     print('\nsmORF mapping has done.\n')
     return resultfile
@@ -161,9 +181,10 @@ def mapdb_mmseqs(args,queryfile,tmpdir):
         args.database,
         resultdb,
 		tmp,
-        '-e','0.00001',
+        '-e',str(args.evalue),
         '--min-seq-id',str(args.identity),
-        '-c','0.9'])  
+        '-c',str(args.coverage),
+        '--threads',str(args.threads)])  
 
     subprocess.check_call([
         'mmseqs','convertalis',
