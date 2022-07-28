@@ -43,6 +43,12 @@ def parse_args(args):
                         dest='database',
                         default=None)
 
+    parser.add_argument('-s', '--sensitivity',
+                        required=False,
+                        help='Sensitivity.',
+                        dest='sensitivity',
+                        default=None)
+
     parser.add_argument('--id', '--id',
                         required=False,
                         help='Minimum identity to report an alignment(range 0.0-1.0).',
@@ -152,7 +158,7 @@ def mapdb_diamond(args,queryfile):
         '-q',queryfile,
         '-d',args.database,
         '-o',resultfile,
-        '--more-sensitive',
+        args.sensitivity,
         '-e',str(args.evalue),
         '--id',str(args.identity*100),
         '--query-cover',str(args.coverage*100),
@@ -182,6 +188,7 @@ def mapdb_mmseqs(args,queryfile,tmpdir):
         args.database,
         resultdb,
 		tmp,
+		'-s',str(args.sensitivity),
         '-e',str(args.evalue),
         '--min-seq-id',str(args.identity),
         '-c',str(args.coverage),
@@ -241,9 +248,27 @@ def main(args=None):
     if args.tool == 'diamond':
         if args.database is None:
             args.database = path.join(_ROOT, 'example/example_diamond_db.dmnd')	
+        if args.sensitivity is None:
+            args.sensitivity = '--more-sensitive'
+        if args.sensitivity == '1':
+            args.sensitivity = '--fast'
+        if args.sensitivity == '2':
+            args.sensitivity = '--mid-sensitive'
+        if args.sensitivity == '3':
+            args.sensitivity = '--default'
+        if args.sensitivity == '4':
+            args.sensitivity = '--sensitive'
+        if args.sensitivity == '5':
+            args.sensitivity = '--more-sensitive'
+        if args.sensitivity == '6':
+            args.sensitivity = 'very-sensitive'
+        if args.sensitivity == '7':
+            args.sensitivity = 'ultra-sensitive'
     if args.tool == 'mmseqs':
         if args.database is None:
             args.database = path.join(_ROOT, 'example/example_mmseqs_db')
+        if args.sensitivity is None:
+            args.sensitivity = 5.7
 
     validate_args(args)
 
@@ -257,7 +282,7 @@ def main(args=None):
             if args.aa_input:
                 queryfile = args.aa_input
 
-            if args.tool == 'diamond':			
+            if args.tool == 'diamond':
                 resultfile = mapdb_diamond(args,queryfile)
             if args.tool == 'mmseqs':
                 resultfile = mapdb_mmseqs(args,queryfile,tmpdirname)
