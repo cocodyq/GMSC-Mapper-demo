@@ -46,15 +46,15 @@ python3 main.py -i example.fa -o output --noquality
 ## Example Output
 The output folder will contain
 - Outputs of smORF prediction (Macrel).
-- Complete mapping result table, listing all the hits in GMSC, per smORF.(Default:Diamond/MMseqs)
+- Complete mapping result table, listing all the hits in GMSC, per smORF (Default:Diamond/MMseqs).
 - Habitat annotation of smORFs.(optional)
 - Taxonomy annotation of smORFs.(optional)
 - Quality annotation of smORFs.(optional)
 
 ## Parameters
-* `-i/--input`: Path to the input genome contig sequence FASTA file.
+* `-i/--input`: Path to the input genome contig sequence FASTA file (possibly .gz/.bz2/.xz compressed).
 
-* `--aa-genes`: Path to the input amino acid sequence FASTA file.
+* `--aa-genes`: Path to the input amino acid sequence FASTA file (possibly .gz/.bz2/.xz compressed).
 
 * `-o/--output`: Output directory (will be created if non-existent).
 

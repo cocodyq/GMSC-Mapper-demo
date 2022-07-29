@@ -133,6 +133,26 @@ def validate_args(args):
     if args.quality is not None:
         expect_file(args.quality)
 
+
+def uncompress(input,tmpdir):
+    import bz2
+    import lzma
+
+    print('Start uncompression...')
+
+    if input.endswith('.bz2'):
+        with bz2.BZ2File(input) as ifile:
+            open(tmpdir + '/input.fasta', "wb+").write(ifile.read())
+        input = tmpdir + '/input.fasta'
+
+    if input.endswith('.xz'):
+        with lzma.open(input, 'rb') as ifile:
+            open(tmpdir + '/input.fasta', "wb+").write(ifile.read())
+        input = tmpdir + '/input.fasta'	
+
+    print('\nUncompression has done.\n')
+    return input
+
 def predict_smorf(args):
     print('Start smORF prediction...')
 
@@ -275,24 +295,26 @@ def main(args=None):
     if not os.path.exists(args.output):
         os.makedirs(args.output)
     
-    with tempfile.TemporaryDirectory() as tmpdirname:
+    with tempfile.TemporaryDirectory() as tmpdir:
         try:
             if args.genome_fasta:
+                args.genome_fasta = uncompress(args.genome_fasta,tmpdir)
                 queryfile = predict_smorf(args)
             if args.aa_input:
+                args.aa_input = uncompress(args.aa_input,tmpdir)
                 queryfile = args.aa_input
 
             if args.tool == 'diamond':
                 resultfile = mapdb_diamond(args,queryfile)
             if args.tool == 'mmseqs':
-                resultfile = mapdb_mmseqs(args,queryfile,tmpdirname)
+                resultfile = mapdb_mmseqs(args,queryfile,tmpdir)
 
             generate_fasta(args,queryfile,resultfile)
 
             if not args.nohabitat:
                 habitat(args,resultfile)
             if not args.notaxonomy:
-                taxonomy(args,resultfile,tmpdirname)
+                taxonomy(args,resultfile,tmpdir)
             if not args.noquality:
                 quality(args,resultfile)				
         except Exception as e:
