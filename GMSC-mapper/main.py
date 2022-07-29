@@ -2,9 +2,10 @@ import subprocess
 import argparse
 import sys
 import os
-from os import path, makedirs
+from os import path
 import pandas as pd
 import tempfile
+from atomicwrites import atomic_write
 
 _ROOT = path.abspath(path.dirname(__file__))
 
@@ -167,7 +168,6 @@ def predict_smorf(args):
     print('\nsmORF prediction has done.\n')
     return path.join(args.output,"predicted_smorf/macrel.out.smorfs.faa")
 
-#should change parameter
 def mapdb_diamond(args,queryfile):
     print('Start smORF mapping...')
 
@@ -184,7 +184,7 @@ def mapdb_diamond(args,queryfile):
         '--query-cover',str(args.coverage*100),
         '--subject-cover',str(args.coverage*100),
         #'--outfmt','6 qseqid full_qseq qlen sseqid full_sseq slen pident length evalue qcovhsp scovhsp',can't work 
-        # Value 6 may be followed by a space-separated list of these keywords: how to accept this parameter from commond
+        # Value 6 may be followed by a space-separated list of these keywords: how to accept this parameter from command
         '--outfmt','6','qseqid','full_qseq','qlen','sseqid','full_sseq','slen','pident','length','evalue','qcovhsp','scovhsp',
         '-p',str(args.threads)])  
 
@@ -241,24 +241,33 @@ def generate_fasta(args,queryfile,resultfile):
             if ID in smorf_id:
                 f.write(f'>{ID}\n{seq}\n')
     print('\nsmORF fasta file generating has done.\n')
+    return fastafile
 
 def habitat(args,resultfile):
     from map_habitat import smorf_habitat
     print('Start habitat annotation...')
-    smorf_habitat(args,resultfile)
+    single_number,single_percentage,multi_number,multi_percentage = smorf_habitat(args,resultfile)
     print('\nhabitat annotation has done.\n')
+    return single_number,single_percentage,multi_number,multi_percentage 
 
 def taxonomy(args,resultfile,tmpdirname):
-    from map_taxonomy import deep_lca
+    from map_taxonomy import deep_lca,taxa_summary
     print('Start taxonomy annotation...')
     deep_lca(args,resultfile,tmpdirname)
+    annotated_number,rank_number,rank_percentage = taxa_summary(args)
     print('\ntaxonomy annotation has done.\n')
+    return annotated_number,rank_number,rank_percentage
 
 def quality(args,resultfile):
     from map_quality import smorf_quality
     print('Start quality annotation...')
-    smorf_quality(args,resultfile)
+    number,percentage = smorf_quality(args,resultfile)
     print('\nquality annotation has done.\n')
+    return number,percentage
+
+def predicted_smorf_count(file_name):
+    out = subprocess.getoutput("wc -l %s" % file_name)
+    return int(out.split()[0])
 
 def main(args=None):
     if args is None:
@@ -297,9 +306,14 @@ def main(args=None):
     
     with tempfile.TemporaryDirectory() as tmpdir:
         try:
+            summary = []
+            summary.append(f'# Total number\n')
             if args.genome_fasta:
                 args.genome_fasta = uncompress(args.genome_fasta,tmpdir)
                 queryfile = predict_smorf(args)
+                smorf_number = int(predicted_smorf_count(queryfile)/2)
+                summary.append(f'{str(smorf_number)} smORFs are predicted in total.')
+
             if args.aa_input:
                 args.aa_input = uncompress(args.aa_input,tmpdir)
                 queryfile = args.aa_input
@@ -309,14 +323,38 @@ def main(args=None):
             if args.tool == 'mmseqs':
                 resultfile = mapdb_mmseqs(args,queryfile,tmpdir)
 
-            generate_fasta(args,queryfile,resultfile)
+            fastafile = generate_fasta(args,queryfile,resultfile)
+            smorf_number = int(predicted_smorf_count(fastafile)/2)
+            summary.append(f'{str(smorf_number)} smORFs are aligned against GMSC in total.\n')
 
-            if not args.nohabitat:
-                habitat(args,resultfile)
-            if not args.notaxonomy:
-                taxonomy(args,resultfile,tmpdir)
+            summary.append(f'# Quality\n')
             if not args.noquality:
-                quality(args,resultfile)				
+                number,percentage = quality(args,resultfile)	
+                summary.append(f'{str(number)}({str(round(percentage*100,2))}%) aligned smORFs are high quality.\n')
+
+            summary.append(f'# Habitat\n')
+            if not args.nohabitat:
+                single_number,single_percentage,multi_number,multi_percentage = habitat(args,resultfile)
+                summary.append(f'{str(single_number)}({str(round(single_percentage*100,2))}%) aligned smORFs are single-habitat.')
+                summary.append(f'{str(multi_number)}({str(round(multi_percentage*100,2))}%) aligned smORFs are multi-habitat.\n')
+
+            summary.append(f'# Taxonomy\n')
+            if not args.notaxonomy:
+                annotated_number,rank_number,rank_percentage = taxonomy(args,resultfile,tmpdir)	
+                summary.append(str(annotated_number)+'('+str(round((1-rank_percentage['no rank'])*100,2))+'%) aligned smORFs have taxonomy annotation.')
+                summary.append(str(rank_number['kingdom'])+'('+str(round(rank_percentage['kingdom']*100,2))+'%) aligned smORFs are annotated on kingdom.')
+                summary.append(str(rank_number['phylum'])+'('+str(round(rank_percentage['phylum']*100,2))+'%) aligned smORFs are annotated on phylum.')
+                summary.append(str(rank_number['class'])+'('+str(round(rank_percentage['class']*100,2))+'%) aligned smORFs are annotated on class.')
+                summary.append(str(rank_number['order'])+'('+str(round(rank_percentage['order']*100,2))+'%) aligned smORFs are annotated on order.')
+                summary.append(str(rank_number['family'])+'('+str(round(rank_percentage['family']*100,2))+'%) aligned smORFs are annotated on family.')
+                summary.append(str(rank_number['genus'])+'('+str(round(rank_percentage['genus']*100,2))+'%) aligned smORFs are annotated on genus.')
+                summary.append(str(rank_number['species'])+'('+str(round(rank_percentage['species']*100,2))+'%) aligned smORFs are annotated on species.')
+
+            with atomic_write(f'{args.output}/summary.txt', overwrite=True) as ofile:
+                for s in summary:
+                    print(s)
+                    ofile.write(f'{s}\n')		
+
         except Exception as e:
             sys.stderr.write('GMGC-mapper Error: ')
             sys.stderr.write(str(e))

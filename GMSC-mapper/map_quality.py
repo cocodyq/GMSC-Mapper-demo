@@ -14,4 +14,10 @@ def smorf_quality(args,resultfile):
     output = output.groupby('qseqid',as_index=False,sort=False).agg({'quality':lambda x : ','.join(x.drop_duplicates())})
     rule = {"high quality":0,"low quality":1}
     output['quality'] = output['quality'].apply(lambda x: sorted(x.split(','),key=lambda x:rule[x])[0])
+
+    number_dict = dict(output['quality'].value_counts())
+    number_dict_normalize = dict(output['quality'].value_counts(normalize=True))
+    number = number_dict['high quality']
+    percentage = number_dict_normalize['high quality']
     output.to_csv(quality_file,sep='\t',index=False)
+    return number,percentage

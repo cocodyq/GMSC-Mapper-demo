@@ -91,6 +91,26 @@ def deep_lca(args,resultfile,tmpdirname):
                 taxa = add_taxa_to_sseqid(taxa,linelist,original_tax,sseqid)
             compare_cluster(cluster,taxa,change,lastrank,out)                                            
 
+def taxa_summary(args):
+    taxonomy_dlca_file = path.join(args.output,"taxonomy.out.smorfs.tsv")
+    output = pd.read_csv(taxonomy_dlca_file, sep='\t')
+    rank = {1:'kingdom',2:'phylum',3:'class',4:'order',5:'family',6:'genus',7:'species',8:'no rank'}
+    number_dict = dict(output['taxonomy'].fillna(';;;;;;;').apply(lambda x: len(x.split(';'))).value_counts())
+    number_dict_percentage = dict(output['taxonomy'].fillna(';;;;;;;').apply(lambda x: len(x.split(';'))).value_counts(normalize=True))
+    rank_number = {}
+    rank_percentage = {}
+    for i in range(1,9):
+        if i in number_dict.keys():
+            rank_number[rank[i]] = number_dict[i]
+            rank_percentage[rank[i]] = number_dict_percentage[i]
+        else:
+            rank_number[rank[i]] = 0
+            rank_percentage[rank[i]] = 0
+    annotated_number = output['taxonomy'].size - rank_number['no rank']
+    return annotated_number,rank_number,rank_percentage
+
+
+
 '''
 def store_taxonomy(args):
     import lzma

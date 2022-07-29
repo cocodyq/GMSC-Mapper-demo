@@ -14,7 +14,16 @@ def smorf_habitat(args,resultfile):
     output = pd.merge(result,ref_habitat,how='left')[['qseqid', 'habitat']]
     output = output.groupby('qseqid',as_index=False,sort=False).agg({'habitat':lambda x : ','.join(x.dropna().drop_duplicates())})
     output['habitat'] = output['habitat'].apply(lambda x: ','.join(sorted(list(set(x.split(','))))))
+
+    number_dict = dict(output['habitat'].apply(lambda x: len(x.split(','))).value_counts())
+    number_dict_normalize = dict(output['habitat'].apply(lambda x: len(x.split(','))).value_counts(normalize=True))
+    single_number = number_dict[1]
+    single_percentage = number_dict_normalize[1]
+    multi_number = output['habitat'].size - single_number
+    multi_percentage = 1 - number_dict_normalize[1]
+
     output.to_csv(habitat_file,sep='\t',index=False)
+    return single_number,single_percentage,multi_number,multi_percentage
 
 # the same function in another way
 '''
